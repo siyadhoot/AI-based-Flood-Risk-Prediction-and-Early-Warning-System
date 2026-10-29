@@ -1,0 +1,3 @@
+partition,rows,class_counts
+train,3563,"{""Flood"": 2275, ""Severe Flood"": 1288}"
+test,891,"{""Flood"": 569, ""Severe Flood"": 322}"

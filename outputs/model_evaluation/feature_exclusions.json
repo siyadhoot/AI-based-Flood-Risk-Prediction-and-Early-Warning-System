@@ -1,0 +1,26 @@
+{
+  "excluded_columns": [
+    "T10d",
+    "T1d",
+    "T2d",
+    "T3d",
+    "T4d",
+    "T5d",
+    "T6d",
+    "T7d",
+    "T8d",
+    "T9d"
+  ],
+  "notes": {
+    "T10d": "Rainfall window timing is not documented; excluded conservatively.",
+    "T1d": "Rainfall window timing is not documented; excluded conservatively.",
+    "T2d": "Rainfall window timing is not documented; excluded conservatively.",
+    "T3d": "Rainfall window timing is not documented; excluded conservatively.",
+    "T4d": "Rainfall window timing is not documented; excluded conservatively.",
+    "T5d": "Rainfall window timing is not documented; excluded conservatively.",
+    "T6d": "Rainfall window timing is not documented; excluded conservatively.",
+    "T7d": "Rainfall window timing is not documented; excluded conservatively.",
+    "T8d": "Rainfall window timing is not documented; excluded conservatively.",
+    "T9d": "Rainfall window timing is not documented; excluded conservatively."
+  }
+}
