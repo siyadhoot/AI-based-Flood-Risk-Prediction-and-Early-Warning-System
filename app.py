@@ -3,6 +3,7 @@ import json
 from typing import Optional
 
 import joblib
+import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 
@@ -31,14 +32,77 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-      .block-container {padding-top: 1.4rem; padding-bottom: 2rem;}
-      .hero {padding: 1.2rem 1.4rem; border-radius: 14px;
-        background: linear-gradient(120deg, rgba(15,76,117,.16), rgba(50,130,184,.08));
-        border: 1px solid rgba(100,140,170,.30); margin-bottom: 1rem;}
-      .hero h1 {margin: 0 0 .35rem 0;}
-      .muted {color: #77808a; font-size: .92rem;}
-      .prediction {padding: .9rem 1rem; border-radius: 10px;
-        border: 1px solid rgba(130,130,130,.35); margin: .5rem 0 1rem 0;}
+      .stApp, [data-testid="stAppViewContainer"] {background: #f4f7fb; color: #18283a;}
+      [data-testid="stHeader"] {background: transparent;}
+      .block-container {max-width: 1500px; padding: 1.45rem 2.2rem 2.4rem;}
+      [data-testid="stSidebar"] {background: #101f33; border-right: 1px solid #20344d;}
+      [data-testid="stSidebar"] [data-testid="stSidebarContent"] {padding: 1.4rem 1.05rem;}
+      [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2,
+      [data-testid="stSidebar"] h3, [data-testid="stSidebar"] p,
+      [data-testid="stSidebar"] label {color: #e9eff6;}
+      [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {color: #aebbd0;}
+      [data-testid="stSidebar"] hr {border-color: #30445c;}
+      .hero {display: flex; align-items: center; gap: .85rem; padding: 1.05rem 1.25rem;
+        border-radius: 12px; background: #fff; border: 1px solid #dce4ee;
+        box-shadow: 0 2px 8px rgba(18, 43, 70, .045); margin-bottom: .8rem;}
+      .hero-icon {display: flex; align-items: center; color: #197c91;}
+      .hero h1 {font-size: clamp(1.45rem, 2.3vw, 2rem); letter-spacing: -.025em;
+        margin: 0 0 .23rem 0; color: #14263b;}
+      .hero-subtitle {color: #63748a; font-size: .92rem;}
+      .prototype-note {padding: .75rem 1rem; background: #eaf5f5; border: 1px solid #d0e7e5;
+        border-left: 4px solid #238a8d; border-radius: 8px; color: #24474b;
+        font-size: .91rem; line-height: 1.5; margin: 0 0 1.4rem;}
+      [data-testid="stMetric"] {padding: .85rem 1rem; background: #fff; border: 1px solid #dce4ee;
+        border-radius: 10px; box-shadow: 0 2px 7px rgba(18, 43, 70, .035);}
+      [data-testid="stMetricLabel"] p {color: #5b6e83; font-size: .86rem;}
+      [data-testid="stMetricValue"] {color: #183c5a; font-weight: 700;}
+      [data-testid="stTabs"] button[role="tab"],
+      [data-testid="stTabs"] button[role="tab"] * {color: #173b5e !important; opacity: 1 !important;}
+      [data-baseweb="tab-list"] [data-baseweb="tab"],
+      [data-baseweb="tab-list"] [data-baseweb="tab"] *,
+      button[data-baseweb="tab"], button[data-baseweb="tab"] *,
+      [role="tab"], [role="tab"] * {
+        color: #173b5e !important;
+        -webkit-text-fill-color: #173b5e !important;
+        opacity: 1 !important;
+      }
+      [data-testid="stTabs"] button[role="tab"] {padding: .7rem 1.1rem;
+        font-weight: 600; border-bottom: 2px solid transparent;}
+      [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {color: #075c83 !important;
+        border-bottom-color: #1a8998;}
+      [data-baseweb="tab-list"] [data-baseweb="tab"][aria-selected="true"],
+      [data-baseweb="tab-list"] [data-baseweb="tab"][aria-selected="true"] *,
+      button[data-baseweb="tab"][aria-selected="true"],
+      button[data-baseweb="tab"][aria-selected="true"] *,
+      [role="tab"][aria-selected="true"], [role="tab"][aria-selected="true"] * {
+        color: #075c83 !important;
+        -webkit-text-fill-color: #075c83 !important;
+      }
+      [data-testid="stTabs"] [data-baseweb="tab-highlight"] {background: #168394;}
+      [data-testid="stDataFrame"] {border: 1px solid #dce4ee; border-radius: 8px; overflow: hidden;}
+      [data-testid="stImage"] img {border: 1px solid #dce4ee; border-radius: 8px;}
+      .status-line {display: flex; align-items: flex-start; gap: .55rem; margin: .62rem 0;
+        color: #e6edf6; font-size: .91rem; line-height: 1.35;}
+      .status-check {color: #55d69a; font-weight: 700; min-width: 1rem;}
+      .status-missing {color: #f18b89; font-weight: 700; min-width: 1rem;}
+      .status-detail {color: #aebbd0; font-size: .76rem; margin: -.3rem 0 .58rem 1.55rem;
+        overflow-wrap: anywhere;}
+      .side-target {padding: .85rem .9rem; background: #172a41; border: 1px solid #2b4059;
+        border-radius: 9px; margin-top: .65rem;}
+      .side-target-label {color: #9eb0c5; font-size: .72rem; text-transform: uppercase;
+        letter-spacing: .08em; margin-bottom: .3rem;}
+      .side-target-value {color: #f2f6fa; font-weight: 650;}
+      .side-target-caption {color: #b6c5d6; font-size: .8rem; margin-top: .25rem;}
+      .prediction {padding: .95rem 1rem; border-radius: 9px; background: #edf6f7;
+        border: 1px solid #cfe4e5; border-left: 4px solid #278b91; margin: .5rem 0 1rem;
+        color: #203b4c; line-height: 1.55;}
+      .section-caption {color: #66788c; margin-top: -.35rem;}
+      .muted {color: #77879a; font-size: .84rem;}
+      @media (max-width: 760px) {
+        .block-container {padding: 1rem .85rem 1.5rem;}
+        .hero {padding: .9rem; align-items: flex-start;}
+        .hero-icon svg {width: 25px; height: 25px;}
+      }
     </style>
     """,
     unsafe_allow_html=True,
@@ -46,18 +110,25 @@ st.markdown(
 st.markdown(
     """
     <div class="hero">
-      <h1>🌊 AI-Based Flood Risk Assessment</h1>
-      <div>INDOFLOODS dataset · Existing ML pipelines · Historical severity classification</div>
+      <div class="hero-icon" aria-hidden="true">
+        <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M16 3.5C16 3.5 7.7 13.1 7.7 19.2a8.3 8.3 0 0 0 16.6 0C24.3 13.1 16 3.5 16 3.5Z" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M11.5 20.1c.3 2.2 1.8 3.6 4.1 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <h1>AI-Based Flood Risk Assessment</h1>
+        <div class="hero-subtitle">INDOFLOODS dataset &middot; Existing ML pipelines &middot; Historical severity classification</div>
+      </div>
     </div>
     """,
     unsafe_allow_html=True,
 )
-st.warning(
-    "Prototype only: this app classifies the severity of recorded flood events. "
-    "It is not a live sensor feed, a verified 24-hour forecast, or an operational emergency-warning system. "
-    "Do not use it as the sole basis for real-world safety decisions."
+st.markdown(
+    '<div class="prototype-note">This application classifies the severity of recorded flood events. '
+    'It is not a live sensor feed, a verified 24-hour forecast, or an operational emergency-warning system. Do not use it as the sole basis for real-world safety decisions.</div>',
+    unsafe_allow_html=True,
 )
-
 
 def first_existing(paths):
     return next((p for p in paths if p.exists()), None)
@@ -90,6 +161,16 @@ def class_label(value) -> str:
     if text in {"flood", "0", "0.0"}:
         return "Flood"
     return str(value)
+
+
+def status_item(label: str, value: str):
+    icon_class = "status-missing" if value == "Missing" else "status-check"
+    icon = "&#10007;" if value == "Missing" else "&#10003;"
+    st.markdown(
+        f'<div class="status-line"><span class="{icon_class}">{icon}</span>'
+        f'<span>{label}: <strong>{value}</strong></span></div>',
+        unsafe_allow_html=True,
+    )
 
 
 def probability_table(pipeline, row: pd.DataFrame) -> Optional[pd.DataFrame]:
@@ -140,18 +221,27 @@ if not model_names:
     model_names = sorted(p.stem for p in MODEL_DIR.glob("*.joblib") if p.stem != "best_model")
 
 with st.sidebar:
-    st.header("Project status")
-    st.caption("Member 3 · Dashboard and integration")
-    st.write(f"Dataset: {'✅ Found' if DATA_PATH else '❌ Missing'}")
-    st.caption(str(DATA_PATH.relative_to(BASE_DIR)) if DATA_PATH else "Expected: data/processed/flood_model_data.csv")
-    st.write(f"Training metadata: {'✅ Found' if METADATA_PATH.exists() else '❌ Missing'}")
-    st.write(f"Model pipelines found: {len(model_names)}")
-    st.write(f"Evaluation results: {'✅ Found' if RESULTS_PATH else '❌ Missing'}")
-    st.caption(str(RESULTS_PATH.relative_to(BASE_DIR)) if RESULTS_PATH else "Expected: outputs/model_evaluation/model_comparison.csv")
+    st.markdown("### Project status")
+    st.caption("Member 3 - Dashboard and integration")
+    status_item("Dataset", "Found" if DATA_PATH else "Missing")
+    st.markdown(
+        f'<div class="status-detail">{DATA_PATH.relative_to(BASE_DIR) if DATA_PATH else "Expected: data/processed/flood_model_data.csv"}</div>',
+        unsafe_allow_html=True,
+    )
+    status_item("Training metadata", "Found" if METADATA_PATH.exists() else "Missing")
+    status_item("Model pipelines found", str(len(model_names)))
+    status_item("Evaluation results", "Found" if RESULTS_PATH else "Missing")
+    st.markdown(
+        f'<div class="status-detail">{RESULTS_PATH.relative_to(BASE_DIR) if RESULTS_PATH else "Expected: outputs/model_evaluation/model_comparison.csv"}</div>',
+        unsafe_allow_html=True,
+    )
     st.divider()
-    st.markdown("**Target**")
-    st.write("Flood Type")
-    st.write("Classes: Flood · Severe Flood")
+    st.markdown(
+        '<div class="side-target"><div class="side-target-label">Target</div>'
+        '<div class="side-target-value">Flood Type</div>'
+        '<div class="side-target-caption">Classes: Flood &middot; Severe Flood</div></div>',
+        unsafe_allow_html=True,
+    )
 
 for problem in load_problems:
     st.error(problem)
@@ -177,8 +267,8 @@ metric_label_map = {
     "training_seconds": "Training time (seconds)",
 }
 
-tab_overview, tab_performance, tab_assessment, tab_demo = st.tabs([
-    "📊 Dataset Overview", "🧪 Model Performance", "🚦 Severity Assessment", "🎤 Demo & Limitations"
+tab_overview, tab_performance, tab_assessment = st.tabs([
+    "Dataset Overview", "Model Performance", "Severity Assessment"
 ])
 
 with tab_overview:
@@ -187,9 +277,9 @@ with tab_overview:
         st.info("Dataset statistics appear when `data/processed/flood_model_data.csv` is available.")
     else:
         c1, c2, c3 = st.columns(3)
-        c1.metric("Records", f"{len(df):,}")
-        c2.metric("Dataset columns", f"{len(df.columns):,}")
-        c3.metric("Model input features", f"{len(feature_columns):,}" if feature_columns else "Metadata unavailable")
+        c1.metric("▤ Total records", f"{len(df):,}")
+        c2.metric("▦ Dataset columns", f"{len(df.columns):,}")
+        c3.metric("⌘ Model input features", f"{len(feature_columns):,}" if feature_columns else "Metadata unavailable")
         if "GaugeID" in df.columns:
             st.metric("Gauge stations", f"{df['GaugeID'].nunique():,}")
         elif "Station" in df.columns:
@@ -199,9 +289,34 @@ with tab_overview:
         with left:
             st.markdown("#### Flood-type distribution")
             if "Flood Type" in df.columns:
-                counts = df["Flood Type"].fillna("Missing label").value_counts().rename_axis("Flood type")
-                st.bar_chart(counts)
-                st.dataframe(counts.rename("Events").reset_index(), hide_index=True, use_container_width=True)
+                counts = df["Flood Type"].fillna("Missing label").value_counts()
+                ordered_labels = [
+                    label for label in ["Flood", "Severe Flood", "Missing label"]
+                    if label in counts.index
+                ]
+                other_labels = [label for label in counts.index if label not in ordered_labels]
+                counts = counts.reindex(ordered_labels + other_labels)
+                colors = [
+                    "#3478b9" if label == "Flood" else
+                    "#16a3a1" if label == "Severe Flood" else "#9aa8b7"
+                    for label in counts.index
+                ]
+                fig, ax = plt.subplots(figsize=(7, 3.8))
+                bars = ax.bar(counts.index, counts.values, color=colors, width=0.58)
+                ax.set_ylabel("Recorded events", color="#42566d")
+                ax.set_xlabel("Flood type", color="#42566d")
+                ax.set_title("Recorded event counts", loc="left", color="#19344f", fontsize=12, pad=12)
+                ax.yaxis.grid(True, color="#e5ebf1", linewidth=.8)
+                ax.set_axisbelow(True)
+                ax.spines[["top", "right", "left"]].set_visible(False)
+                ax.spines["bottom"].set_color("#cbd5df")
+                ax.tick_params(axis="both", colors="#607287", length=0, pad=7)
+                ax.bar_label(bars, labels=[f"{int(value):,}" for value in counts.values], padding=4, color="#263c52", fontsize=10)
+                ax.margins(y=.16)
+                fig.tight_layout()
+                st.pyplot(fig, width="stretch")
+                plt.close(fig)
+                st.dataframe(counts.rename("Events").rename_axis("Flood type").reset_index(), hide_index=True, width="stretch")
             else:
                 st.warning("The `Flood Type` target column was not found.")
         with right:
@@ -214,23 +329,23 @@ with tab_overview:
                     len([col for col in feature_columns if col not in df.columns]) if feature_columns else "Metadata unavailable",
                 ],
             })
-            st.dataframe(quality, hide_index=True, use_container_width=True)
+            st.dataframe(quality, hide_index=True, width="stretch")
 
         st.markdown("#### Sample records")
         preferred = [c for c in ["EventID", "GaugeID", "Station", "Start Date", "Flood Type"] if c in df.columns]
-        st.dataframe(df[preferred].head(10) if preferred else df.head(10), hide_index=True, use_container_width=True)
+        st.dataframe(df[preferred].head(10) if preferred else df.head(10), hide_index=True, width="stretch")
         st.caption(f"Loaded from `{DATA_PATH.relative_to(BASE_DIR)}`.")
 
 with tab_performance:
     st.subheader("Model comparison and evaluation")
-    st.caption("The table below uses your existing held-out evaluation results.")
+    st.markdown('<div class="section-caption">Saved test-set results from the existing model experiment.</div>', unsafe_allow_html=True)
     if results is None or results.empty:
         st.info("Evaluation results appear after `outputs/model_evaluation/model_comparison.csv` is available.")
     else:
         result_display = results.copy()
         if "model" in result_display.columns and "Model" not in result_display.columns:
             result_display = result_display.rename(columns={"model": "Model"})
-        st.dataframe(result_display.round(4), hide_index=True, use_container_width=True)
+        st.dataframe(result_display.round(4), hide_index=True, width="stretch")
 
         metric_cols = [col for col in metric_label_map if col in results.columns]
         if "model" in results.columns and metric_cols:
@@ -268,13 +383,36 @@ with tab_performance:
             for col, (name, label) in zip(cols, available_plots[start:start + 2]):
                 with col:
                     st.markdown(f"**{label}**")
-                    st.image(str(EVAL_DIR / name), use_container_width=True)
+                    st.image(str(EVAL_DIR / name), width="stretch")
     else:
         st.info("No saved PNG evaluation plots were found in `outputs/model_evaluation/`.")
 
+    with st.expander("Presentation notes, limitations, and checklist"):
+        st.markdown("**Suggested presentation flow**")
+        st.markdown(
+            "1. **Dataset Overview:** explain the historical event records and Flood Type classes.\n"
+            "2. **Model Performance:** compare all eight saved models using the existing held-out results.\n"
+            "3. **Evaluation plots:** explain macro F1, per-class recall, confusion matrices, ROC and precision-recall curves.\n"
+            "4. **Severity Assessment:** select a historical record and run one of the saved pipelines.\n"
+            "5. **Limitations:** describe false negatives and explain why this is not yet a live advance-warning service."
+        )
+        st.markdown("**Important limitations**")
+        st.markdown(
+            "- **Historical severity classification:** the target is `Flood Type` for recorded flood events, not flood/no-flood prediction for a future time window.\n"
+            "- **False negatives:** a severe flood labelled as an ordinary flood can be dangerous; examine severe-class recall and confusion matrices.\n"
+            "- **Macro metrics:** macro precision/recall/F1 average performance across classes and are not the same as severe-class recall alone.\n"
+            "- **Historical-row demonstration:** predicting a row already in the dataset is for demonstrating the app and is not independent evaluation.\n"
+            "- **Live early warning:** a real warning system needs time-stamped input available before the event, non-flood periods, a defined forecast horizon, live data integration, and independent validation."
+        )
+        st.markdown("**Member 3 checklist**")
+        st.checkbox("Dashboard loads the existing dataset and metadata", key="m3_data")
+        st.checkbox("All available model comparison metrics and plots display", key="m3_metrics")
+        st.checkbox("A saved model pipeline successfully predicts a historical row", key="m3_predict")
+        st.checkbox("Dashboard was tested and committed to GitHub", key="m3_git")
+
 with tab_assessment:
     st.subheader("Assess a recorded event")
-    st.caption("Select a historical row and one of the pipelines already saved by your team's training script.")
+    st.markdown('<div class="section-caption">Select a historical row and an existing saved pipeline.</div>', unsafe_allow_html=True)
     if df is None or not feature_columns:
         st.info("This section needs the dataset and `models/training_metadata.json`.")
     elif not model_names:
@@ -304,16 +442,16 @@ with tab_assessment:
                 row = df.iloc[i]
                 ident = row.get("EventID", row.get("GaugeID", f"Dataset row {i + 1}"))
                 actual = row.get("Flood Type", "Unknown")
-                return f"Row {i + 1} · {ident} · recorded label: {actual}"
+                return f"Row {i + 1} | {ident} | recorded label: {actual}"
 
             selected_pos = st.selectbox("Select a historical event", list(range(len(df))), format_func=event_text)
             selected_row = df.iloc[[selected_pos]]
             X_input = selected_row.reindex(columns=feature_columns)
             with st.expander("View the input features provided to the pipeline"):
-                st.dataframe(X_input.T.rename(columns={X_input.index[0]: "Value"}), use_container_width=True)
+                st.dataframe(X_input.T.astype("string").rename(columns={X_input.index[0]: "Value"}), width="stretch")
                 st.caption("The saved training pipeline handles the imputation, scaling and categorical encoding used during training.")
 
-            if st.button("Estimate severity", type="primary", use_container_width=True):
+            if st.button("Estimate severity", type="primary", width="stretch"):
                 model_path = MODEL_DIR / f"{selected_model_name}.joblib"
                 try:
                     pipeline = load_pipeline(str(model_path))
@@ -326,7 +464,7 @@ with tab_assessment:
                         if not matched.empty:
                             predicted_probability = float(matched.iloc[0]["Estimated model probability"])
 
-                    heading = "LEVEL 2 · SEVERE FLOOD CLASS" if predicted_text == "Severe Flood" else "LEVEL 1 · FLOOD CLASS"
+                    heading = "LEVEL 2 - SEVERE FLOOD CLASS" if predicted_text == "Severe Flood" else "LEVEL 1 - FLOOD CLASS"
                     explanation = (
                         "The selected pipeline classified this historical record as Severe Flood. Review false negatives and the model limitations."
                         if predicted_text == "Severe Flood" else
@@ -338,34 +476,11 @@ with tab_assessment:
                     c2.metric("Model probability for predicted class", f"{predicted_probability:.1%}" if predicted_probability is not None else "Not available")
                     if probs is not None:
                         st.markdown("#### Class probabilities")
-                        st.dataframe(probs.assign(**{"Estimated model probability": probs["Estimated model probability"].map(lambda x: f"{x:.1%}")}), hide_index=True, use_container_width=True)
+                        st.dataframe(probs.assign(**{"Estimated model probability": probs["Estimated model probability"].map(lambda x: f"{x:.1%}")}), hide_index=True, width="stretch")
                     st.caption(f"Recorded historical label: **{selected_row['Flood Type'].iloc[0]}**. This demonstrates pipeline operation; it is not an independent forecast test.")
                 except Exception as exc:
                     st.error(f"Prediction failed: {exc}")
                     st.info("Confirm that the dataset is `data/processed/flood_model_data.csv` and that the selected `.joblib` file was created from the same training metadata/features.")
 
-with tab_demo:
-    st.subheader("Suggested presentation flow")
-    st.markdown(
-        "1. **Dataset Overview:** explain the historical event records and Flood Type classes.\n"
-        "2. **Model Performance:** compare all eight saved models using the existing held-out results.\n"
-        "3. **Evaluation plots:** explain macro F1, per-class recall, confusion matrices, ROC and precision-recall curves.\n"
-        "4. **Severity Assessment:** select a historical record and run one of the saved pipelines.\n"
-        "5. **Limitations:** describe false negatives and explain why this is not yet a live advance-warning service."
-    )
-    st.markdown("#### Important limitations")
-    st.markdown(
-        "- **Historical severity classification:** the target is `Flood Type` for recorded flood events, not flood/no-flood prediction for a future time window.\n"
-        "- **False negatives:** a severe flood labelled as an ordinary flood can be dangerous; examine severe-class recall and confusion matrices.\n"
-        "- **Macro metrics:** macro precision/recall/F1 average performance across classes and are not the same as severe-class recall alone.\n"
-        "- **Historical-row demonstration:** predicting a row already in the dataset is for demonstrating the app and is not independent evaluation.\n"
-        "- **Live early warning:** a real warning system needs time-stamped input available before the event, non-flood periods, a defined forecast horizon, live data integration, and independent validation."
-    )
-    st.markdown("#### Member 3 checklist")
-    st.checkbox("Dashboard loads the existing dataset and metadata", key="m3_data")
-    st.checkbox("All available model comparison metrics and plots display", key="m3_metrics")
-    st.checkbox("A saved model pipeline successfully predicts a historical row", key="m3_predict")
-    st.checkbox("Dashboard was tested and committed to GitHub", key="m3_git")
-
 st.divider()
-st.markdown('<div class="muted">Academic prototype · Evaluation values are taken from saved test results. Not an official flood warning service.</div>', unsafe_allow_html=True)
+st.markdown('<div class="muted">Academic prototype | Evaluation values are taken from saved test results. Not an official flood warning service.</div>', unsafe_allow_html=True)
