@@ -1,0 +1,27 @@
+{
+  "seed": 42,
+  "train_rows": 2850,
+  "validation_rows": 713,
+  "test_rows": 891,
+  "epochs_completed": 23,
+  "best_epoch": 8,
+  "training_seconds": 5.384004699997604,
+  "inference_seconds": 0.06047419994138181,
+  "class_weight": {
+    "Flood": 0.782967032967033,
+    "Severe Flood": 1.383495145631068
+  },
+  "split_protocol": "Existing stratified random 80/20 baseline split; 20% of training partition held for validation; no GaugeID grouping in baseline.",
+  "architecture": [
+    128,
+    128,
+    64,
+    32,
+    1
+  ],
+  "hidden_activation": "relu",
+  "output_activation": "sigmoid",
+  "batch_size": 32,
+  "learning_rate": 0.001,
+  "patience": 15
+}

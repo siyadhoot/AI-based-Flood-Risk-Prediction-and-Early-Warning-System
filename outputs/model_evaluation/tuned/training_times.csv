@@ -1,0 +1,9 @@
+model,training_seconds
+gradient_boosting,24.938900700071827
+random_forest,37.7633085999405
+decision_tree,2.270147499977611
+logistic_regression,2.9841691999463364
+svc_rbf,40.16563329997007
+knn,8.486830400070176
+gaussian_nb,2.2772495000390336
+dummy,0.8965428000083193

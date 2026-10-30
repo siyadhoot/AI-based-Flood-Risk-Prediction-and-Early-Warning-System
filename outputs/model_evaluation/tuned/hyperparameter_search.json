@@ -1,0 +1,108 @@
+{
+  "selection_metric": "macro F1",
+  "cv": "3-fold shuffled StratifiedKFold",
+  "random_state": 42,
+  "search_method": "RandomizedSearchCV; no held-out test data used for selection",
+  "iterations_per_model": 8,
+  "training_rows": 3563,
+  "models": [
+    {
+      "model": "gradient_boosting",
+      "cv_macro_f1": 0.696269886953255,
+      "cv_train_macro_f1": 0.7212791361545604,
+      "search_and_refit_seconds": 24.938900700071827,
+      "best_params": {
+        "classifier__subsample": 0.9,
+        "classifier__n_estimators": 80,
+        "classifier__min_samples_leaf": 3,
+        "classifier__max_depth": 3,
+        "classifier__learning_rate": 0.08
+      },
+      "candidates_evaluated": 8
+    },
+    {
+      "model": "random_forest",
+      "cv_macro_f1": 0.69871627026194,
+      "cv_train_macro_f1": 0.7249997483079075,
+      "search_and_refit_seconds": 37.7633085999405,
+      "best_params": {
+        "classifier__n_estimators": 120,
+        "classifier__min_samples_leaf": 2,
+        "classifier__max_features": "sqrt",
+        "classifier__max_depth": 12,
+        "classifier__class_weight": null
+      },
+      "candidates_evaluated": 8
+    },
+    {
+      "model": "decision_tree",
+      "cv_macro_f1": 0.700211088249135,
+      "cv_train_macro_f1": 0.7208695469300407,
+      "search_and_refit_seconds": 2.270147499977611,
+      "best_params": {
+        "classifier__min_samples_split": 10,
+        "classifier__min_samples_leaf": 4,
+        "classifier__max_depth": 6,
+        "classifier__criterion": "log_loss",
+        "classifier__class_weight": null
+      },
+      "candidates_evaluated": 8
+    },
+    {
+      "model": "logistic_regression",
+      "cv_macro_f1": 0.6929956991210497,
+      "cv_train_macro_f1": 0.7140286186929216,
+      "search_and_refit_seconds": 2.9841691999463364,
+      "best_params": {
+        "classifier__C": 0.9846738873614566,
+        "classifier__class_weight": null,
+        "classifier__solver": "lbfgs"
+      },
+      "candidates_evaluated": 8
+    },
+    {
+      "model": "svc_rbf",
+      "cv_macro_f1": 0.6948263201539288,
+      "cv_train_macro_f1": 0.7233348560241161,
+      "search_and_refit_seconds": 40.16563329997007,
+      "best_params": {
+        "classifier__C": 13.145103232150124,
+        "classifier__class_weight": null,
+        "classifier__gamma": "auto"
+      },
+      "candidates_evaluated": 8
+    },
+    {
+      "model": "knn",
+      "cv_macro_f1": 0.6730718218172349,
+      "cv_train_macro_f1": 0.6904831708999332,
+      "search_and_refit_seconds": 8.486830400070176,
+      "best_params": {
+        "classifier__weights": "uniform",
+        "classifier__p": 2,
+        "classifier__n_neighbors": 17
+      },
+      "candidates_evaluated": 8
+    },
+    {
+      "model": "gaussian_nb",
+      "cv_macro_f1": 0.5663969170445763,
+      "cv_train_macro_f1": 0.5842312562893007,
+      "search_and_refit_seconds": 2.2772495000390336,
+      "best_params": {
+        "classifier__var_smoothing": 5.669849511478847e-08
+      },
+      "candidates_evaluated": 8
+    },
+    {
+      "model": "dummy",
+      "cv_macro_f1": 0.49679865524643185,
+      "cv_train_macro_f1": 0.4894038780663646,
+      "search_and_refit_seconds": 0.8965428000083193,
+      "best_params": {
+        "classifier__strategy": "uniform"
+      },
+      "candidates_evaluated": 4
+    }
+  ]
+}

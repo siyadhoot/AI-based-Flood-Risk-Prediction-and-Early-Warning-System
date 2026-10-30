@@ -6,6 +6,7 @@ import joblib
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
+from src.ann.inference import predict_ann
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_CANDIDATES = [
@@ -16,6 +17,8 @@ DATA_CANDIDATES = [
 ]
 METADATA_PATH = BASE_DIR / "models" / "training_metadata.json"
 RESULTS_CANDIDATES = [
+    BASE_DIR / "outputs" / "model_evaluation" / "tuned" / "model_comparison.csv",
+    BASE_DIR / "outputs" / "ann" / "model_comparison.csv",
     BASE_DIR / "outputs" / "model_evaluation" / "model_comparison.csv",
     BASE_DIR / "models" / "model_comparison.csv",
 ]
@@ -217,6 +220,10 @@ model_names = [
     name for name in model_names_from_metadata
     if (MODEL_DIR / f"{name}.joblib").exists()
 ]
+if (BASE_DIR / "outputs" / "ann" / "best_model.keras").exists():
+    model_names.append("ann")
+TUNED_MODEL_DIR = MODEL_DIR / "tuned"
+model_names.extend(f"{p.stem}_tuned" for p in TUNED_MODEL_DIR.glob("*.joblib"))
 if not model_names:
     model_names = sorted(p.stem for p in MODEL_DIR.glob("*.joblib") if p.stem != "best_model")
 
@@ -267,8 +274,8 @@ metric_label_map = {
     "training_seconds": "Training time (seconds)",
 }
 
-tab_overview, tab_performance, tab_assessment = st.tabs([
-    "Dataset Overview", "Model Performance", "Severity Assessment"
+tab_overview, tab_performance, tab_ann, tab_assessment = st.tabs([
+    "Dataset Overview", "Model Performance", "Traditional ML vs Deep Learning", "Severity Assessment"
 ])
 
 with tab_overview:
@@ -410,6 +417,69 @@ with tab_performance:
         st.checkbox("A saved model pipeline successfully predicts a historical row", key="m3_predict")
         st.checkbox("Dashboard was tested and committed to GitHub", key="m3_git")
 
+with tab_ann:
+    st.subheader("Traditional ML vs Deep Learning")
+    ann_dir = BASE_DIR / "outputs" / "ann"
+    comparison_path = EVAL_DIR / "tuned" / "model_comparison.csv"
+    if not comparison_path.exists():
+        comparison_path = ann_dir / "model_comparison.csv"
+    if not comparison_path.exists():
+        st.info("ANN results are not available yet. Install requirements, then run `python -m src.ann.train` and `python -m src.ann.evaluate`.")
+        st.caption("The ANN uses the existing stratified random test partition. The baseline does not use GaugeID grouping, so this comparison does not measure unseen-gauge generalisation.")
+    else:
+        comparison = load_csv(str(comparison_path))
+        comparison["model_type"] = comparison["model"].map(lambda name: "Deep Learning" if name == "ann" else "Traditional ML")
+        best = comparison.loc[pd.to_numeric(comparison["f1_macro"], errors="coerce").idxmax()]
+        st.metric("Best macro F1 model", f"{pretty_model_name(best['model'])} · {best['model_type']}", f"{float(best['f1_macro']):.1%}")
+        table_cols = [c for c in ["model", "model_type", "accuracy", "precision_macro", "recall_macro", "f1_macro"] if c in comparison]
+        shown = comparison[table_cols].copy().rename(columns={"model": "Model", "model_type": "Type", "accuracy": "Accuracy", "precision_macro": "Macro precision", "recall_macro": "Macro recall", "f1_macro": "Macro F1"})
+        for column in ["Accuracy", "Macro precision", "Macro recall", "Macro F1"]:
+            if column in shown: shown[column] = pd.to_numeric(shown[column], errors="coerce").map(lambda value: f"{value:.1%}" if pd.notna(value) else "—")
+        st.dataframe(shown, hide_index=True, width="stretch")
+        for metric, title in [("accuracy", "Accuracy"), ("f1_macro", "Macro F1-score"), ("Severe Flood_recall", "Severe Flood recall")]:
+            if metric in comparison:
+                st.markdown(f"#### {title}")
+                chart = comparison[["model", "model_type", metric]].copy()
+                chart[metric] = pd.to_numeric(chart[metric], errors="coerce") * 100
+                try:
+                    import plotly.express as px
+                    fig = px.bar(chart, x="model", y=metric, color="model_type", text=chart[metric].map(lambda v: f"{v:.1f}%"),
+                                 color_discrete_map={"Traditional ML": "#3478b9", "Deep Learning": "#16a3a1"}, labels={"model": "Model", metric: "Percent", "model_type": "Model type"})
+                    fig.update_layout(yaxis_range=[0, 100], legend_title_text="Model type")
+                    st.plotly_chart(fig, width="stretch")
+                except ImportError:
+                    st.bar_chart(chart.set_index("model")[metric])
+        report_path = EVAL_DIR / "tuned" / "classification_reports.json"
+        if not report_path.exists():
+            report_path = ann_dir / "classification_reports.json"
+        ann_metrics = load_json(str(ann_dir / "test_metrics.json")) if (ann_dir / "test_metrics.json").exists() else {}
+        if report_path.exists() and "ann" in (reports := load_json(str(report_path))):
+            ann_report = reports["ann"]
+            old_models = [name for name in comparison.model if name != "ann"]
+            best_old = comparison[comparison.model.isin(old_models)].sort_values("f1_macro", ascending=False).iloc[0]["model"]
+            c1, c2 = st.columns(2)
+            for col, name in [(c1, "ann"), (c2, best_old)]:
+                report_source = load_json(str(report_path))
+                rep = ann_report if name == "ann" else report_source[name]
+                col.markdown(f"#### {pretty_model_name(name)} class-wise scores")
+                col.dataframe(pd.DataFrame([{ "Class": label, "Precision": rep[label]["precision"], "Recall": rep[label]["recall"], "F1": rep[label]["f1-score"]} for label in ["Flood", "Severe Flood"]]).style.format({"Precision":"{:.1%}","Recall":"{:.1%}","F1":"{:.1%}"}), hide_index=True, width="stretch")
+        for filename, title in [("training_accuracy.png", "ANN training and validation accuracy"), ("training_loss.png", "ANN training and validation loss"), ("confusion_matrix.png", "ANN confusion matrix")]:
+            if (ann_dir / filename).exists(): st.image(str(ann_dir / filename), caption=title, width="stretch")
+        if (ann_dir / "training_history.csv").exists():
+            history = load_csv(str(ann_dir / "training_history.csv"))
+            if "loss" in history and "val_loss" in history:
+                gap = float(history.iloc[-1]["val_loss"] - history.iloc[-1]["loss"])
+                overfit_text = "The final validation loss exceeds training loss, which is a possible overfitting signal." if gap > 0.1 else "The final training and validation losses are close; this alone does not establish generalisation."
+            else: overfit_text = "Training history is unavailable."
+            ann_row = comparison[comparison.model == "ann"].iloc[0]
+            top_old = comparison[comparison.model != "ann"].sort_values("f1_macro", ascending=False).iloc[0]
+            text = f"ANN macro F1 is {float(ann_row.f1_macro):.1%}; the best traditional model ({pretty_model_name(top_old.model)}) is {float(top_old.f1_macro):.1%}. "
+            text += "ANN improves macro F1 on this test set." if ann_row.f1_macro > top_old.f1_macro else "ANN does not improve macro F1 on this test set."
+            text += f" Severe Flood recall is {float(ann_row['Severe Flood_recall']):.1%} for ANN and {float(top_old['Severe Flood_recall']):.1%} for the best traditional model. {overfit_text}"
+            st.markdown("#### Interpretation")
+            st.write(text)
+            st.caption("Interpretation is calculated from saved held-out metrics and training history. Results are conditional on the baseline random split; gauge-wise generalisation was not evaluated.")
+
 with tab_assessment:
     st.subheader("Assess a recorded event")
     st.markdown('<div class="section-caption">Select a historical row and an existing saved pipeline.</div>', unsafe_allow_html=True)
@@ -433,6 +503,8 @@ with tab_assessment:
                 if not temp.empty:
                     result_best = str(temp.loc[temp["f1_macro"].idxmax(), "model"])
             default_name = result_best if result_best in model_names else ("gradient_boosting" if "gradient_boosting" in model_names else model_names[0])
+            if result_best and (TUNED_MODEL_DIR / f"{result_best}.joblib").exists():
+                default_name = f"{result_best}_tuned"
             shown_models = list(model_for_display.keys())
             default_display = pretty_model_name(default_name)
             selected_display = st.selectbox("Choose trained model", shown_models, index=shown_models.index(default_display))
@@ -452,12 +524,24 @@ with tab_assessment:
                 st.caption("The saved training pipeline handles the imputation, scaling and categorical encoding used during training.")
 
             if st.button("Estimate severity", type="primary", width="stretch"):
-                model_path = MODEL_DIR / f"{selected_model_name}.joblib"
                 try:
-                    pipeline = load_pipeline(str(model_path))
-                    predicted = pipeline.predict(X_input)[0]
+                    if selected_model_name == "ann":
+                        import tensorflow as tf
+                        ann_dir = BASE_DIR / "outputs" / "ann"
+                        ann_meta = load_pipeline(str(ann_dir / "metadata.joblib"))
+                        ann_preprocessor = load_pipeline(str(ann_dir / "preprocessor.joblib"))
+                        ann_model = tf.keras.models.load_model(ann_dir / "best_model.keras")
+                        predicted, probability = predict_ann(ann_model, ann_preprocessor, X_input, ann_meta["feature_names"])
+                        probs = pd.DataFrame({"Class": ["Flood", "Severe Flood"], "Estimated model probability": [1 - probability, probability]})
+                    else:
+                        if selected_model_name.endswith("_tuned"):
+                            tuned_name = selected_model_name.removesuffix("_tuned")
+                            pipeline = load_pipeline(str(TUNED_MODEL_DIR / f"{tuned_name}.joblib"))
+                        else:
+                            pipeline = load_pipeline(str(MODEL_DIR / f"{selected_model_name}.joblib"))
+                        predicted = pipeline.predict(X_input)[0]
+                        probs = probability_table(pipeline, X_input)
                     predicted_text = class_label(predicted)
-                    probs = probability_table(pipeline, X_input)
                     predicted_probability = None
                     if probs is not None:
                         matched = probs.loc[probs["Class"] == predicted_text]
